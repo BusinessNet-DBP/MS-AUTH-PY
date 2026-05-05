@@ -1,23 +1,34 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from src.routers.auth import router as auth_router
-
-app = FastAPI(title="MS AUTH")
-
-# Orígenes permitidos (tu frontend)
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000"  # opcional, por si accedes con 127.0.0.1
-]
-
-# Middleware de CORS
+from src.config import settings
+from src.database import create_tables
+ 
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+)
+ 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],      # dominios que pueden hacer requests
-    allow_credentials=True,     # cookies y credenciales
-    allow_methods=["*"],        # GET, POST, PUT, DELETE, etc.
-    allow_headers=["*"],        # headers permitidos
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
-# Routers
-app.include_router(auth_router)
+ 
+@app.on_event("startup")
+def on_startup():
+    create_tables()
+ 
+# Fotos de perfil accesibles en /uploads/profile_photos/<filename>
+os.makedirs("uploads/profile_photos", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+ 
+app.include_router(auth_router, prefix="/api/v1")  # ← agregar prefix aquí
+ 
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": settings.APP_NAME}
